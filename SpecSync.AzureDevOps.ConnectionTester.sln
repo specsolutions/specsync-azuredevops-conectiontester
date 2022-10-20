@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.2.32505.173
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SpecSync.ConnectionTester", "SpecSync.ConnectionTester.csproj", "{A3FA46C2-BE55-47FE-A46C-CCC8E9FEC308}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SpecSync.AzureDevOps.ConnectionTester", "SpecSync.AzureDevOps.ConnectionTester.csproj", "{A3FA46C2-BE55-47FE-A46C-CCC8E9FEC308}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
