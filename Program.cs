@@ -8,16 +8,17 @@ using Microsoft.TeamFoundation.Core.WebApi;
 using Microsoft.VisualStudio.Services.Common;
 
 // See https://aka.ms/new-console-template for more information
-void ParseAdoProjectUrl(string url, out string collectionUrl, out string projectName){
-  url = url.TrimEnd('/');
-  var lastSlash = url.LastIndexOf('/');
-  if (lastSlash < 0)
-  {
-      throw new InvalidOperationException($"Unable to parse Azure DevOps project URL: {url}");
-  }
-  collectionUrl = url.Substring(0, lastSlash);
-  projectName = url.Substring(lastSlash + 1);
-  projectName = WebUtility.UrlDecode(projectName);
+void ParseAdoProjectUrl(string url, out string collectionUrl, out string projectName)
+{
+    url = url.TrimEnd('/');
+    var lastSlash = url.LastIndexOf('/');
+    if (lastSlash < 0)
+    {
+        throw new InvalidOperationException($"Unable to parse Azure DevOps project URL: {url}");
+    }
+    collectionUrl = url.Substring(0, lastSlash);
+    projectName = url.Substring(lastSlash + 1);
+    projectName = WebUtility.UrlDecode(projectName);
 }
 
 VssConnection CreateVssConnection(Uri collectionUrl, VssCredentials credentials)
@@ -49,14 +50,15 @@ bool ServerCertificateValidationCallback(object sender, X509Certificate certific
 
 
 Console.WriteLine("*** SpecSync for Azure DevOps Connection Tester ***");
-System.Console.WriteLine();
+Console.WriteLine();
 
-if (args.Length < 2){
-  System.Console.WriteLine("Usage:");
-  System.Console.WriteLine("  SpecSync.ConnectionTester.exe <project-url> <pat>");
-  System.Console.WriteLine("OR");
-  System.Console.WriteLine("  SpecSync.ConnectionTester.exe <project-url> <username> <password>");
-  return;
+if (args.Length < 2)
+{
+    Console.WriteLine("Usage:");
+    Console.WriteLine("  SpecSync.ConnectionTester.exe <project-url> <pat>");
+    Console.WriteLine("OR");
+    Console.WriteLine("  SpecSync.ConnectionTester.exe <project-url> <username> <password>");
+    return;
 }
 
 var projectUrl = args[0];
@@ -70,34 +72,39 @@ Console.WriteLine($"Project Name: {projectName}");
 Console.WriteLine();
 
 Console.WriteLine("Testing connection with Azure DevOps .NET API...");
-try {
-  var vssConnection = CreateVssConnection(new Uri(collectionUrl), new VssBasicCredential(userNameOrPat, password));
-  vssConnection.ConnectAsync().Wait();
-  vssConnection.GetClient<ProjectHttpClient>().GetProject(projectName).Wait();
-  System.Console.WriteLine("Succeeded!");
+
+try
+{
+    var vssConnection = CreateVssConnection(new Uri(collectionUrl), new VssBasicCredential(userNameOrPat, password));
+    vssConnection.ConnectAsync().Wait();
+    vssConnection.GetClient<ProjectHttpClient>().GetProject(projectName).Wait();
+    Console.WriteLine("Succeeded!");
 }
-catch(Exception ex){
-  System.Console.WriteLine("Failed!");
-  System.Console.WriteLine(ex);
+catch (Exception ex)
+{
+    Console.WriteLine("Failed!");
+    Console.WriteLine(ex);
 }
-System.Console.WriteLine();
-System.Console.WriteLine();
+Console.WriteLine();
+Console.WriteLine();
 Console.WriteLine("Testing connection with HttpClient...");
-try {
-  var httpClient = new HttpClient();
-  httpClient.BaseAddress = new Uri(collectionUrl + "/");
-  httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", Convert.ToBase64String(Encoding.UTF8.GetBytes(userNameOrPat + ":" + password)));
-  var response = httpClient.GetAsync($"_apis/projects/{projectName}?includeHistory=False").Result;
-  System.Console.WriteLine($"  {response.RequestMessage?.RequestUri}");
-  System.Console.WriteLine($"  {(int)response.StatusCode} ({response.StatusCode})");
-  if (response.StatusCode != HttpStatusCode.OK)
-    System.Console.WriteLine("Failed! Wrong HTTP status code.");  
-  else
-    System.Console.WriteLine("Succeeded!");
+try
+{
+    var httpClient = new HttpClient();
+    httpClient.BaseAddress = new Uri(collectionUrl + "/");
+    httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", Convert.ToBase64String(Encoding.UTF8.GetBytes(userNameOrPat + ":" + password)));
+    var response = httpClient.GetAsync($"_apis/projects/{projectName}?includeHistory=False").Result;
+    Console.WriteLine($"  {response.RequestMessage?.RequestUri}");
+    Console.WriteLine($"  {(int)response.StatusCode} ({response.StatusCode})");
+    if (response.StatusCode != HttpStatusCode.OK)
+        Console.WriteLine("Failed! Wrong HTTP status code.");
+    else
+        Console.WriteLine("Succeeded!");
 }
-catch(Exception ex){
-  System.Console.WriteLine("Failed!");
-  System.Console.WriteLine(ex);
+catch (Exception ex)
+{
+    Console.WriteLine("Failed!");
+    Console.WriteLine(ex);
 }
-System.Console.WriteLine();
-System.Console.WriteLine();
+Console.WriteLine();
+Console.WriteLine();
