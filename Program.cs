@@ -73,6 +73,8 @@ Console.WriteLine();
 
 Console.WriteLine("Testing connection with Azure DevOps .NET API...");
 
+ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
+
 try
 {
     var vssConnection = CreateVssConnection(new Uri(collectionUrl), new VssBasicCredential(userNameOrPat, password));
