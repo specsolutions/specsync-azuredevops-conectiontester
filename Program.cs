@@ -7,8 +7,21 @@ using System.Security.Cryptography.X509Certificates;
 using Microsoft.TeamFoundation.Core.WebApi;
 using Microsoft.VisualStudio.Services.Common;
 
-// See https://aka.ms/new-console-template for more information
-void ParseAdoProjectUrl(string url, out string collectionUrl, out string projectName)
+X509Certificate LoadClientCertificate(string filePath)
+{
+    try
+    {
+        return new X509Certificate2(filePath);
+    }
+    catch (Exception)
+    {
+        Console.Write("Please specify password for client certificate or leave empty if no password required: ");
+        var certPassword = Console.ReadLine();
+        return new X509Certificate2(filePath, certPassword);
+    }
+}
+
+void ParseAdoProjectUrl(string url, out string adoCollectionUrl, out string adoProjectName)
 {
     url = url.TrimEnd('/');
     var lastSlash = url.LastIndexOf('/');
@@ -16,19 +29,24 @@ void ParseAdoProjectUrl(string url, out string collectionUrl, out string project
     {
         throw new InvalidOperationException($"Unable to parse Azure DevOps project URL: {url}");
     }
-    collectionUrl = url.Substring(0, lastSlash);
-    projectName = url.Substring(lastSlash + 1);
-    projectName = WebUtility.UrlDecode(projectName);
+    adoCollectionUrl = url.Substring(0, lastSlash);
+    adoProjectName = url.Substring(lastSlash + 1);
+    adoProjectName = WebUtility.UrlDecode(adoProjectName);
 }
 
-VssConnection CreateVssConnection(Uri collectionUrl, VssCredentials credentials)
+VssConnection CreateVssConnection(Uri adoCollectionUrl, VssCredentials credentials, X509Certificate? clientCertificate)
 {
     var vssHttpRequestSettings = VssClientHttpRequestSettings.Default.Clone();
     vssHttpRequestSettings.ServerCertificateValidationCallback = ServerCertificateValidationCallback;
+    if (clientCertificate != null)
+    {
+        vssHttpRequestSettings.ClientCertificateManager = new ClientCertificateManager();
+        vssHttpRequestSettings.ClientCertificateManager.ClientCertificates.Add(clientCertificate);
+    }
 
     var httpMessageHandlers = Enumerable.Empty<DelegatingHandler>();
 
-    return new VssConnection(collectionUrl,
+    return new VssConnection(adoCollectionUrl,
         new VssHttpMessageHandler(credentials, vssHttpRequestSettings),
         httpMessageHandlers);
 }
@@ -55,21 +73,33 @@ Console.WriteLine();
 if (args.Length < 2)
 {
     Console.WriteLine("Usage:");
-    Console.WriteLine("  SpecSync.ConnectionTester.exe <project-url> <pat>");
+    Console.WriteLine("  SpecSync.ConnectionTester.exe <project-url> <pat> [<client-certificate-file>.pfx]");
     Console.WriteLine("OR");
-    Console.WriteLine("  SpecSync.ConnectionTester.exe <project-url> <username> <password>");
+    Console.WriteLine("  SpecSync.ConnectionTester.exe <project-url> <username> <password> [<client-certificate-file>.pfx]");
     return;
 }
 
 var projectUrl = args[0];
 var userNameOrPat = args[1];
-var password = args.Length == 2 ? "" : args[2];
+var password = args.Length == 2 || args[2].EndsWith(".pfx", StringComparison.InvariantCultureIgnoreCase) ? "" : args[2];
+var clientCertificateFile = args.Last().EndsWith(".pfx", StringComparison.InvariantCultureIgnoreCase) ? args.Last() : null;
 
 ParseAdoProjectUrl(projectUrl, out var collectionUrl, out var projectName);
 
+if (clientCertificateFile != null)
+{
+    clientCertificateFile = Path.GetFullPath(clientCertificateFile);
+    if (!File.Exists(clientCertificateFile))
+        throw new InvalidOperationException($"Client certificate file does not exist: {clientCertificateFile}");
+}
+
 Console.WriteLine($"Collection URL: {collectionUrl}");
 Console.WriteLine($"Project Name: {projectName}");
+if (clientCertificateFile != null)
+    Console.WriteLine($"Client certificate file: {clientCertificateFile}");
 Console.WriteLine();
+
+var clientCertificate = clientCertificateFile != null ? LoadClientCertificate(clientCertificateFile) : null;
 
 Console.WriteLine("Testing connection with Azure DevOps .NET API...");
 
@@ -77,7 +107,7 @@ ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
 
 try
 {
-    var vssConnection = CreateVssConnection(new Uri(collectionUrl), new VssBasicCredential(userNameOrPat, password));
+    var vssConnection = CreateVssConnection(new Uri(collectionUrl), new VssBasicCredential(userNameOrPat, password), clientCertificate);
     vssConnection.ConnectAsync().Wait();
     vssConnection.GetClient<ProjectHttpClient>().GetProject(projectName).Wait();
     Console.WriteLine("Succeeded!");
@@ -92,7 +122,11 @@ Console.WriteLine();
 Console.WriteLine("Testing connection with HttpClient...");
 try
 {
-    var httpClient = new HttpClient();
+    var handler = new HttpClientHandler();
+    if (clientCertificate != null)
+        handler.ClientCertificates.Add(clientCertificate);
+
+    var httpClient = new HttpClient(handler);
     httpClient.BaseAddress = new Uri(collectionUrl + "/");
     httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic", Convert.ToBase64String(Encoding.UTF8.GetBytes(userNameOrPat + ":" + password)));
     var response = httpClient.GetAsync($"_apis/projects/{projectName}?includeHistory=False").Result;
