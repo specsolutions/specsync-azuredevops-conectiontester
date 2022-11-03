@@ -1,4 +1,5 @@
-﻿using System.Net;
+﻿using System.ComponentModel;
+using System.Net;
 using System.Net.Http.Headers;
 using Microsoft.VisualStudio.Services.WebApi;
 using System.Text;
@@ -6,6 +7,33 @@ using System.Net.Security;
 using System.Security.Cryptography.X509Certificates;
 using Microsoft.TeamFoundation.Core.WebApi;
 using Microsoft.VisualStudio.Services.Common;
+
+void PrintError(Exception exception, string indent = "")
+{
+    var errorCode = "";
+    if (exception is Win32Exception win32Exception)
+    {
+        errorCode = $" (0x{win32Exception.NativeErrorCode:x8})";
+    }
+    Console.WriteLine($"{indent}{exception.GetType().FullName}{errorCode}: {exception.Message}");
+    if (exception is AggregateException aggregateException)
+    {
+        foreach (var innerEx in aggregateException.InnerExceptions)
+        {
+            PrintError(innerEx, indent + " ---> ");
+        }
+    }
+    else if (exception.InnerException != null)
+    {
+        PrintError(exception.InnerException, indent + " ---> ");
+    }
+
+    //if (indent == "")
+    //{
+    //    Console.WriteLine();
+    //    Console.WriteLine(exception);
+    //}
+}
 
 X509Certificate LoadClientCertificate(string filePath)
 {
@@ -115,7 +143,7 @@ try
 catch (Exception ex)
 {
     Console.WriteLine("Failed!");
-    Console.WriteLine(ex);
+    PrintError(ex);
 }
 Console.WriteLine();
 Console.WriteLine();
@@ -140,7 +168,7 @@ try
 catch (Exception ex)
 {
     Console.WriteLine("Failed!");
-    Console.WriteLine(ex);
+    PrintError(ex);
 }
 Console.WriteLine();
 Console.WriteLine();
