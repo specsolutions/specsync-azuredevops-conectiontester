@@ -74,8 +74,12 @@ VssConnection CreateVssConnection(Uri adoCollectionUrl, VssCredentials credentia
 
     var httpMessageHandlers = Enumerable.Empty<DelegatingHandler>();
 
+    var innerHandler = new HttpClientHandler();
+    var vssHttpMessageHandler = new VssHttpMessageHandler(credentials, vssHttpRequestSettings, innerHandler);
+    if (clientCertificate == null)
+        innerHandler.ClientCertificateOptions = ClientCertificateOption.Automatic;
     return new VssConnection(adoCollectionUrl,
-        new VssHttpMessageHandler(credentials, vssHttpRequestSettings),
+        vssHttpMessageHandler,
         httpMessageHandlers);
 }
 
@@ -153,6 +157,8 @@ try
     var handler = new HttpClientHandler();
     if (clientCertificate != null)
         handler.ClientCertificates.Add(clientCertificate);
+    else
+        handler.ClientCertificateOptions = ClientCertificateOption.Automatic;
 
     var httpClient = new HttpClient(handler);
     httpClient.BaseAddress = new Uri(collectionUrl + "/");
