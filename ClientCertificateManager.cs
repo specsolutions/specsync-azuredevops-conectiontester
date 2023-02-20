@@ -1,7 +1,10 @@
 ﻿using System.Security.Cryptography.X509Certificates;
 using Microsoft.VisualStudio.Services.Common;
 
-class ClientCertificateManager : IVssClientCertificateManager
+namespace SpecSync.AzureDevOps.ConnectionTester
 {
-    public X509Certificate2Collection ClientCertificates { get; } = new();
+    class ClientCertificateManager : IVssClientCertificateManager
+    {
+        public X509Certificate2Collection ClientCertificates { get; } = new();
+    }
 }
