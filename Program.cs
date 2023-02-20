@@ -1,6 +1,5 @@
 ﻿using System;
 using System.ComponentModel;
-using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
@@ -26,10 +25,10 @@ namespace SpecSync.AzureDevOps.ConnectionTester
             {
                 Console.WriteLine("Usage:");
                 Console.WriteLine(
-                    "  SpecSync.ConnectionTester.exe <project-url> <pat> [<client-certificate-file>.pfx]");
+                    "  SpecSync.ConnectionTester.exe <project-url> <pat>");
                 Console.WriteLine("OR");
                 Console.WriteLine(
-                    "  SpecSync.ConnectionTester.exe <project-url> <username> <password> [<client-certificate-file>.pfx]");
+                    "  SpecSync.ConnectionTester.exe <project-url> <username> <password>");
                 return;
             }
 
@@ -38,26 +37,12 @@ namespace SpecSync.AzureDevOps.ConnectionTester
             var password = args.Length == 2 || args[2].EndsWith(".pfx", StringComparison.InvariantCultureIgnoreCase)
                 ? ""
                 : args[2];
-            var clientCertificateFile =
-                args.Last().EndsWith(".pfx", StringComparison.InvariantCultureIgnoreCase) ? args.Last() : null;
 
             ParseAdoProjectUrl(projectUrl, out var collectionUrl, out var projectName);
 
-            if (clientCertificateFile != null)
-            {
-                clientCertificateFile = Path.GetFullPath(clientCertificateFile);
-                if (!File.Exists(clientCertificateFile))
-                    throw new InvalidOperationException(
-                        $"Client certificate file does not exist: {clientCertificateFile}");
-            }
-
             Console.WriteLine($"Collection URL: {collectionUrl}");
             Console.WriteLine($"Project Name: {projectName}");
-            if (clientCertificateFile != null)
-                Console.WriteLine($"Client certificate file: {clientCertificateFile}");
             Console.WriteLine();
-
-            var clientCertificate = clientCertificateFile != null ? LoadClientCertificate(clientCertificateFile) : null;
 
             Console.WriteLine("Testing connection with Azure DevOps .NET API...");
 
@@ -66,8 +51,7 @@ namespace SpecSync.AzureDevOps.ConnectionTester
             try
             {
                 var vssConnection = CreateVssConnection(new Uri(collectionUrl),
-                    new VssBasicCredential(userNameOrPat, password),
-                    clientCertificate);
+                    new VssBasicCredential(userNameOrPat, password));
                 vssConnection.ConnectAsync().Wait();
                 vssConnection.GetClient<ProjectHttpClient>().GetProject(projectName).Wait();
                 Console.WriteLine("Succeeded!");
@@ -84,11 +68,6 @@ namespace SpecSync.AzureDevOps.ConnectionTester
             try
             {
                 var handler = new HttpClientHandler();
-                if (clientCertificate != null)
-                    handler.ClientCertificates.Add(clientCertificate);
-                else
-                    handler.ClientCertificateOptions = ClientCertificateOption.Automatic;
-
                 var httpClient = new HttpClient(handler);
                 httpClient.BaseAddress = new Uri(collectionUrl + "/");
                 httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Basic",
@@ -111,40 +90,17 @@ namespace SpecSync.AzureDevOps.ConnectionTester
             Console.WriteLine();
         }
 
-        static VssConnection CreateVssConnection(Uri adoCollectionUrl, VssCredentials credentials, X509Certificate clientCertificate)
+        static VssConnection CreateVssConnection(Uri adoCollectionUrl, VssCredentials credentials)
         {
             var vssHttpRequestSettings = VssClientHttpRequestSettings.Default.Clone();
             vssHttpRequestSettings.ServerCertificateValidationCallback = ServerCertificateValidationCallback;
-            if (clientCertificate != null)
-            {
-                vssHttpRequestSettings.ClientCertificateManager = new ClientCertificateManager();
-                vssHttpRequestSettings.ClientCertificateManager.ClientCertificates.Add(clientCertificate);
-            }
-
             var httpMessageHandlers = Enumerable.Empty<DelegatingHandler>();
 
             var innerHandler = new HttpClientHandler();
             var vssHttpMessageHandler = new VssHttpMessageHandler(credentials, vssHttpRequestSettings, innerHandler);
-            if (clientCertificate == null)
-                innerHandler.ClientCertificateOptions = ClientCertificateOption.Automatic;
             return new VssConnection(adoCollectionUrl,
                 vssHttpMessageHandler,
                 httpMessageHandlers);
-        }
-
-        static X509Certificate LoadClientCertificate(string filePath)
-        {
-            try
-            {
-                return new X509Certificate2(filePath);
-            }
-            catch (Exception)
-            {
-                Console.Write(
-                    "Please specify password for client certificate or leave empty if no password required: ");
-                var certPassword = Console.ReadLine();
-                return new X509Certificate2(filePath, certPassword);
-            }
         }
 
         static bool ServerCertificateValidationCallback(object sender, X509Certificate certificate, X509Chain chain,
